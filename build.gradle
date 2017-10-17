@@ -1,0 +1,83 @@
+plugins {
+  id 'com.github.johnrengelman.shadow' version '2.0.1'
+  id 'java'
+}
+
+apply plugin: 'application'
+apply plugin: 'java-library'
+apply plugin: 'eclipse'
+apply plugin: 'maven'
+apply plugin: 'com.github.johnrengelman.shadow'
+
+applicationName = 'federation-eyes'
+sourceCompatibility = 1.8
+version = '0.0.1'
+mainClassName = 'iox.hla.FederationEyesApplication'
+buildDir = applicationName
+
+configure(install.repositories.mavenInstaller) {
+    pom.project {
+        groupId 'iox.hla'
+        artifactId applicationName
+        inceptionYear '2017'
+        packaging 'jar'
+    }
+}
+
+runShadow {           
+    args 'server', 'conf/' + applicationName + '.yml'
+}
+
+shadowJar {
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+  baseName = appName
+  classifier = null
+  version = null
+  destinationDir = file(appName + '/')
+   manifest {
+        attributes 'Main-Class': mainClassName
+        attributes 'Class-Path': '/libs/' + configurations.runtimeClasspath
+    }
+}
+
+repositories {
+    maven {url 'file://' + new File(System.getProperty('user.home'), '.m2/repository').absolutePath;}
+    jcenter()
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs 'src/main/java'
+            srcDirs 'src/main/resources'
+         }
+    }
+    test {
+        java {
+            srcDirs 'src/test/java'
+         }
+    }
+}
+ 
+dependencies {
+
+    // local flat 
+    compile project (':federate.core')
+   
+    // DropWizard
+    compile 'io.dropwizard:dropwizard-core:1.2.0'
+ 
+    // EMF
+    compile 'org.eclipse.emf:org.eclipse.emf.common:2.12.0'
+    compile 'org.eclipse.emf:org.eclipse.emf.ecore:2.12.0'
+    compile 'org.eclipse.emf:org.eclipse.emf.ecore.xmi:2.12.0'
+    compile 'commons-io:commons-io:2.5'
+    
+    // Logging
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.3.0'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.2.3'
+    
+    testCompile 'com.jayway.restassured:rest-assured:2.9.0'
+    testCompile 'junit:junit:4.+'
+}

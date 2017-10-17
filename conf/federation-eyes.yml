@@ -1,0 +1,39 @@
+logging:
+  level: DEBUG
+  loggers:
+    iox.hla: DEBUG
+    io.dropwizard: DEBUG
+    timeZone: UTC
+federation: 
+  federation_id: FedManager
+  federation_name: FederationManager
+  mode: false
+  step: 2
+  lookahead: 1
+  federationEndTime: 2
+FOMS:
+  - conf/little.xml
+server:
+  adminMinThreads: 1
+  adminMaxThreads: 64
+  adminContextPath: /admin
+  applicationContextPath: /*
+  applicationConnectors:
+    - type: http
+      port: 9000
+    - type: https
+      port: 9001
+      keyStorePath: conf/example.keystore
+      keyStorePassword: example
+      validateCerts: false
+      validatePeers: false
+  adminConnectors:
+    - type: http
+      port: 9100
+    - type: https
+      port: 9101
+      keyStorePath: conf/example.keystore
+      keyStorePassword: example
+      validateCerts: false
+      validatePeers: false
+   
