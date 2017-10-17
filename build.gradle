@@ -36,7 +36,7 @@ repositories {
 dependencies {
 
     // local flat 
-    compile project (':federate.core')
+    compile project (':federate-core')
    
     // DropWizard
     compile 'io.dropwizard:dropwizard-core:1.2.0'
