@@ -98,16 +98,17 @@ public class FederationService extends AbstractFederate implements Runnable {
 				| RTIinternalError e1) {
 			log.error("", e1);
 		}
-		ObjectClassHandle objectClassHandle = new HLA1516eHandle(PorticoConstants.MOM_FEDERATION_OBJECT_HANDLE);
 
-		try {
-			log.debug(rtiAmb.getObjectClassName(objectClassHandle));
-			rtiAmb.subscribeObjectClassAttributes(objectClassHandle, new HLA1516eAttributeHandleSet());
-		} catch (SaveInProgress | RestoreInProgress | FederateNotExecutionMember | NotConnected | RTIinternalError
-				| InvalidObjectClassHandle | hla.rti1516e.exceptions.AttributeNotDefined
-				| hla.rti1516e.exceptions.ObjectClassNotDefined e) {
-			log.error("", e);
-		}
+//		ObjectClassHandle objectClassHandle = new HLA1516eHandle(PorticoConstants.MOM_FEDERATION_OBJECT_HANDLE);
+//		try {
+//			log.debug(rtiAmb.getObjectClassName(objectClassHandle));
+//			rtiAmb.subscribeObjectClassAttributes(objectClassHandle, new HLA1516eAttributeHandleSet());
+//		} catch (SaveInProgress | RestoreInProgress | FederateNotExecutionMember | NotConnected | RTIinternalError
+//				| InvalidObjectClassHandle | hla.rti1516e.exceptions.AttributeNotDefined
+//				| hla.rti1516e.exceptions.ObjectClassNotDefined e) {
+//			log.error("", e);
+//		}
+		
 		try {
 			// enableTimeConstrained();
 

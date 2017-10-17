@@ -3,4 +3,5 @@ build/
 target/
 *.log
 gradle/
+.gradle/
 federation-eyes/

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
-APP_HOME="federation-eyes"
+APP_NAME="federation-eyes"
 DIR=`pwd`
-mkdir -p $APP_HOME
+mkdir -p $APP_NAME
 
 export RTI_FILE="conf/RTI.rid"
-cp -r conf $APP_HOME
-cd $APP_HOME
+cd $APP_NAME
+echo "DiR="`pwd`
+echo "LS="`ls`
 java -jar \
 -Djava.net.preferIPv4Stack=true \
-$APP_HOME.jar server conf/$APP_HOME.yml
+$APP_NAME-0.0.1.jar server conf/$APP_NAME.yml
 cd $DIR

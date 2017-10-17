@@ -1,19 +1,18 @@
-plugins {
-  id 'com.github.johnrengelman.shadow' version '2.0.1'
-  id 'java'
-}
-
 apply plugin: 'application'
-apply plugin: 'java-library'
+apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'maven'
-apply plugin: 'com.github.johnrengelman.shadow'
 
 applicationName = 'federation-eyes'
 sourceCompatibility = 1.8
 version = '0.0.1'
 mainClassName = 'iox.hla.FederationEyesApplication'
-buildDir = applicationName
+archivesBaseName = applicationName
+
+def jarFile = buildDir.name + "/libs/" + applicationName + "-" + version + ".jar"
+// + "/libs/" + applicationName + ".jar"
+println "jarFile=" + jarFile
+println "compile=" + configurations.compile
 
 configure(install.repositories.mavenInstaller) {
     pom.project {
@@ -24,21 +23,9 @@ configure(install.repositories.mavenInstaller) {
     }
 }
 
-runShadow {           
-    args 'server', 'conf/' + applicationName + '.yml'
-}
-
-shadowJar {
-    exclude 'META-INF/*.DSA'
-    exclude 'META-INF/*.RSA'
-  baseName = appName
-  classifier = null
-  version = null
-  destinationDir = file(appName + '/')
-   manifest {
-        attributes 'Main-Class': mainClassName
-        attributes 'Class-Path': '/libs/' + configurations.runtimeClasspath
-    }
+clean {
+    delete "${buildDir}" 
+    delete "${applicationName}" 
 }
 
 repositories {
@@ -46,20 +33,6 @@ repositories {
     jcenter()
 }
 
-sourceSets {
-    main {
-        java {
-            srcDirs 'src/main/java'
-            srcDirs 'src/main/resources'
-         }
-    }
-    test {
-        java {
-            srcDirs 'src/test/java'
-         }
-    }
-}
- 
 dependencies {
 
     // local flat 
@@ -77,7 +50,38 @@ dependencies {
     // Logging
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.3.0'
     compile 'com.fasterxml.jackson.core:jackson-databind:2.2.3'
+    compile 'log4j:log4j:1.2.17'
     
     testCompile 'com.jayway.restassured:rest-assured:2.9.0'
     testCompile 'junit:junit:4.+'
+}
+
+task assemblex {
+    dependsOn jar
+    inputs.file jarFile
+    outputs.dir applicationName
+   doLast{ 
+      copy {
+            from "${buildDir}/libs"
+            into "${applicationName}"
+            fileMode = 0777
+        }
+       copy {
+            from "conf/"
+            into "${applicationName}/conf"
+        }
+       copy {
+            from configurations.runtime
+            into "$applicationName/lib"
+        }
+   }
+}
+
+jar {
+    // Keep jar clean:
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/*.MF'
+    manifest {
+        attributes ('Main-Class': mainClassName,
+                   'Class-Path': ' lib/' + configurations.runtime.collect { it.getName() }.join(' lib/'))
+    }
 }
