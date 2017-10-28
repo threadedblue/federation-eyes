@@ -67,11 +67,11 @@ public class IndexResource {
 	}
 
 	@GET
-	@Path("/init")
+	@Path("/wait")
 	@Produces({ MediaType.APPLICATION_JSON })
 	public String init() {
 		log.info("service=" + service);
-		return service.init();
+		return service.waitForJoiners();
 	}
 
 	@GET

@@ -30,6 +30,7 @@ import hla.rti1516e.exceptions.ErrorReadingFDD;
 import hla.rti1516e.exceptions.FederateAlreadyExecutionMember;
 import hla.rti1516e.exceptions.FederateNotExecutionMember;
 import hla.rti1516e.exceptions.FederateServiceInvocationsAreBeingReportedViaMOM;
+import hla.rti1516e.exceptions.FederatesCurrentlyJoined;
 import hla.rti1516e.exceptions.FederationExecutionDoesNotExist;
 import hla.rti1516e.exceptions.InconsistentFDD;
 import hla.rti1516e.exceptions.InteractionClassNotDefined;
@@ -44,12 +45,13 @@ import hla.rti1516e.exceptions.SynchronizationPointLabelNotAnnounced;
 import hla.rti1516e.exceptions.UnsupportedCallbackModel;
 import hla.rti1516e.time.HLAfloat64Time;
 import hla.rti1516e.time.HLAfloat64TimeFactory;
+import io.dropwizard.lifecycle.Managed;
 import iox.hla.core.AbstractFederate;
 import iox.hla.core.FederateAmbassador;
 import iox.hla.core.InteractionRef;
 import iox.hla.core.RTIAmbassadorException;
 
-public class FederationService extends AbstractFederate implements Runnable {
+public class FederationService extends AbstractFederate implements Managed, Runnable {
 
 	private static final Logger log = LoggerFactory.getLogger(FederationService.class);
 
@@ -104,15 +106,24 @@ public class FederationService extends AbstractFederate implements Runnable {
 		this.resignedFederates = new ArrayList<String>();
 	}
 
-	public String init() {
-		if(init.get()) {
-			return "Already initialized";
+	public void stop() {
+		terminateSimulation();
+		try {
+			rtiAmb.destroyFederationExecution(federationId);
+		} catch (FederatesCurrentlyJoined | FederationExecutionDoesNotExist | NotConnected | RTIinternalError e) {
+			log.error("" + e);
 		}
-		
+	}
+
+	public void start() {
+		if (init.get()) {
+			return;
+		}
+
 		log.info("Attempting to create federation \"" + federationId + "\" ... ");
 		try {
-			log.debug("fedAmb=" + fedAmb );
-			log.debug("foms=" + getFoms() );
+			log.debug("fedAmb=" + fedAmb);
+			log.debug("foms=" + getFoms());
 			rtiAmb.connect(fedAmb, CallbackModel.HLA_EVOKED);
 			rtiAmb.createFederationExecution(federationId, getFoms());
 		} catch (InconsistentFDD | ErrorReadingFDD | CouldNotOpenFDD | NotConnected | RTIinternalError
@@ -122,7 +133,7 @@ public class FederationService extends AbstractFederate implements Runnable {
 			log.error("", e);
 		}
 		log.info("Created federation \"" + federationId + "\" ... ");
-		Rti1516eAmbassador _1516 = (Rti1516eAmbassador)rtiAmb;
+		Rti1516eAmbassador _1516 = (Rti1516eAmbassador) rtiAmb;
 		ObjectModel om = _1516.getHelper().getFOM();
 		log.debug("om=" + om);
 		try {
@@ -133,7 +144,7 @@ public class FederationService extends AbstractFederate implements Runnable {
 				| FederateNotExecutionMember e1) {
 			log.error("", e1);
 		}
-		
+
 		// ObjectClassHandle objectClassHandle = new
 		// HLA1516eHandle(PorticoConstants.MOM_FEDERATION_OBJECT_HANDLE);
 		// try {
@@ -153,7 +164,7 @@ public class FederationService extends AbstractFederate implements Runnable {
 			enableTimeRegulation();
 			enableAsynchronousDelivery();
 			publishAndSubscribe();
-			
+
 			log.info("Registering synchronization points ... ");
 			// REGISTER "ReadyToPopulate" SYNCHRONIZATION POINT
 			rtiAmb.registerFederationSynchronizationPoint(SYNCH_POINTS.readyToPopulate.name(), null);
@@ -178,13 +189,11 @@ public class FederationService extends AbstractFederate implements Runnable {
 					tick();
 				}
 			}
-			waitForJoiners();
 		} catch (RTIinternalError | FederateNotExecutionMember | SaveInProgress | RestoreInProgress | NotConnected
 				| InterruptedException | RTIAmbassadorException e) {
 			log.error("", e);
 		}
 		init.set(true);
-		return "done";
 	}
 
 	private void handleMessages() {
@@ -362,11 +371,17 @@ public class FederationService extends AbstractFederate implements Runnable {
 		System.exit(0);
 	}
 
-	public void waitForJoiners() {
+	public String waitForJoiners() {
 		log.info("Waiting to federates to join...");
-		while(paused.get()) {
+		while (paused.get()) {
 			handleMessages();
+			try {
+				Thread.sleep(2000);
+			} catch (InterruptedException e) {
+				log.error("", e);
+			}
 		}
+		return "All have joined";
 	}
 
 	public String startSimulation() {
