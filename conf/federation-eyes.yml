@@ -1,14 +1,14 @@
 logging:
-  level: DEBUG
+  level: INFO
   loggers:
-    iox.hla: DEBUG
-    io.dropwizard: DEBUG
+    iox.hla: TRACE
+    io.dropwizard: INFO
     timeZone: UTC
 federation: 
-  federation_id: FedManager
-  federation_name: FederationManager
+  federationId: FedManager
+  federateName: FederationManager
   mode: false
-  step: 2
+  stepSize: 2
   lookahead: 1
   federationEndTime: 2
 FOMS:

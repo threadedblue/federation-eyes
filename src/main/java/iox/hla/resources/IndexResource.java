@@ -1,9 +1,12 @@
 package iox.hla.resources;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -14,16 +17,18 @@ import org.slf4j.LoggerFactory;
 
 import iox.hla.FederationService;
 
-@Path("service")
+@Path("/service")
 public class IndexResource {
 
 	private static Logger log = LoggerFactory.getLogger(IndexResource.class);
 
 	private FederationService service;
+	private Thread thread;
 
 	public IndexResource(FederationService service) {
 		try {
 			this.service = service;
+			thread = new Thread(service, FederationService.THREAD_NAME);
 		} catch (NumberFormatException e) {
 			log.error("", e);
 		} catch (Exception e) {
@@ -37,45 +42,62 @@ public class IndexResource {
 	@Produces({ MediaType.APPLICATION_JSON })
 	public String health() {
 		log.info("healthy==>");
-		log.info("service=" + service);
-		return "healthy";
-
+		StringBuilder bld = new StringBuilder();
+		bld.append(String.format("healthy%n"));
+		int i = 0;
+		for (Map.Entry<String, String> entry : service.getFederation().entrySet()) {
+			bld.append(String.format("%d %s %s%n", i++, entry.getKey(), entry.getValue()));
+		}
+		try {
+			for (URL url : service.getFoms()) {
+				bld.append(String.format("%s%n", url));
+			}
+		} catch (MalformedURLException e) {
+			log.error("", e);
+		}
+		return bld.toString();
 	}
 
 	@GET
 	@Path("/id")
 	@Produces({ MediaType.APPLICATION_JSON })
 	public String getFederationId() {
-		log.debug("service=" + service);
-		return service.getFederationId();
+		log.info("service=" + service);
+		return String.format("%s%n", service.getFederationId());
 	}
 
 	@GET
-	@Path("/discovered")
+	@Path("/init")
 	@Produces({ MediaType.APPLICATION_JSON })
-	public Map<Integer, String> getDiscoveredFederates() {
-		return service.getDiscoveredFederates();
+	public String init() {
+		log.info("service=" + service);
+		return service.init();
 	}
 
 	@GET
-	@Path("/expected")
+	@Path("/joined")
 	@Produces({ MediaType.APPLICATION_JSON })
-	public Set<String> getExpectedFederates() {
-		return service.getExpectedFederates();
+	public List<String> getJoinedFederates() {
+		log.info("service=" + service);
+		return service.getJoinedFederates();
 	}
 
-//	@GET
-//	@Path("/incomplete")
-//	@Produces({ MediaType.APPLICATION_JSON })
-//	public Set<FederateObject> getIncompleteFederates() {
-//		return service.getIncompleteFederates();
-//	}
+	@GET
+	@Path("/resigned")
+	@Produces({ MediaType.APPLICATION_JSON })
+	public List<String> getResignedFederates() {
+		log.info("service=" + service);
+		return service.getResignedFederates();
+	}
 
 	@GET
 	@Path("/start")
 	@Produces({ MediaType.APPLICATION_JSON })
 	public String startSimulation() {
-		return service.startSimulation();
+		log.info("started=");
+		String s = service.startSimulation();
+		thread.start();
+		return s;
 	}
 
 	@GET
@@ -103,4 +125,5 @@ public class IndexResource {
 	@Path("/updateloglevel/{level}")
 	public void updateLogLevel(@PathParam("level") int level) {
 		service.updateLogLevel(level);
-	}}
+	}
+}

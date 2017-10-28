@@ -1,4 +1,4 @@
-package iox.hls.resources;
+package iox.hla.resources;
 
 import static com.jayway.restassured.RestAssured.given;
 

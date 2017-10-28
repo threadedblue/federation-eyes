@@ -29,6 +29,60 @@
       <transportation>HLAreliable</transportation>
       <order>TimeStamp</order>
       <interactionClass>
+        <name>Int3</name>
+        <sharing>PublishSubscribe</sharing>
+        <transportation>HLAreliable</transportation>
+        <order>TimeStamp</order>
+        <parameter>
+          <name>boolVal</name>
+          <dataType>EBoolean</dataType>
+        </parameter>
+        <parameter>
+          <name>doubVal</name>
+          <dataType>EDouble</dataType>
+        </parameter>
+        <parameter>
+          <name>strVal</name>
+          <dataType>EString</dataType>
+        </parameter>
+      </interactionClass>
+      <interactionClass>
+        <name>Int2</name>
+        <sharing>PublishSubscribe</sharing>
+        <transportation>HLAreliable</transportation>
+        <order>TimeStamp</order>
+        <parameter>
+          <name>boolVal</name>
+          <dataType>EBoolean</dataType>
+        </parameter>
+        <parameter>
+          <name>doubVal</name>
+          <dataType>EDouble</dataType>
+        </parameter>
+        <parameter>
+          <name>strVal</name>
+          <dataType>EString</dataType>
+        </parameter>
+      </interactionClass>
+      <interactionClass>
+        <name>Int1</name>
+        <sharing>PublishSubscribe</sharing>
+        <transportation>HLAreliable</transportation>
+        <order>TimeStamp</order>
+        <parameter>
+          <name>boolVal</name>
+          <dataType>EBoolean</dataType>
+        </parameter>
+        <parameter>
+          <name>doubVal</name>
+          <dataType>EDouble</dataType>
+        </parameter>
+        <parameter>
+          <name>strVal</name>
+          <dataType>EString</dataType>
+        </parameter>
+      </interactionClass>
+      <interactionClass>
         <name>Int4</name>
         <sharing>PublishSubscribe</sharing>
         <transportation>HLAreliable</transportation>
@@ -83,56 +137,22 @@
         </parameter>
       </interactionClass>
       <interactionClass>
-        <name>Int3</name>
+        <name>JoinInteraction</name>
         <sharing>PublishSubscribe</sharing>
         <transportation>HLAreliable</transportation>
         <order>TimeStamp</order>
         <parameter>
-          <name>boolVal</name>
-          <dataType>EBoolean</dataType>
-        </parameter>
-        <parameter>
-          <name>doubVal</name>
-          <dataType>EDouble</dataType>
-        </parameter>
-        <parameter>
-          <name>strVal</name>
+          <name>federateName</name>
           <dataType>EString</dataType>
         </parameter>
       </interactionClass>
       <interactionClass>
-        <name>Int2</name>
+        <name>ResignInteraction</name>
         <sharing>PublishSubscribe</sharing>
         <transportation>HLAreliable</transportation>
         <order>TimeStamp</order>
         <parameter>
-          <name>boolVal</name>
-          <dataType>EBoolean</dataType>
-        </parameter>
-        <parameter>
-          <name>doubVal</name>
-          <dataType>EDouble</dataType>
-        </parameter>
-        <parameter>
-          <name>strVal</name>
-          <dataType>EString</dataType>
-        </parameter>
-      </interactionClass>
-      <interactionClass>
-        <name>Int1</name>
-        <sharing>PublishSubscribe</sharing>
-        <transportation>HLAreliable</transportation>
-        <order>TimeStamp</order>
-        <parameter>
-          <name>boolVal</name>
-          <dataType>EBoolean</dataType>
-        </parameter>
-        <parameter>
-          <name>doubVal</name>
-          <dataType>EDouble</dataType>
-        </parameter>
-        <parameter>
-          <name>strVal</name>
+          <name>federateName</name>
           <dataType>EString</dataType>
         </parameter>
       </interactionClass>

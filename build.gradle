@@ -5,9 +5,10 @@ apply plugin: 'maven'
 
 applicationName = 'federation-eyes'
 sourceCompatibility = 1.8
-version = '0.0.1'
 mainClassName = 'iox.hla.FederationEyesApplication'
 archivesBaseName = applicationName
+group = 'iox.hla'
+version = '0.0.1'
 
 def jarFile = buildDir.name + "/libs/" + applicationName + "-" + version + ".jar"
 // + "/libs/" + applicationName + ".jar"
@@ -16,7 +17,7 @@ println "compile=" + configurations.compile
 
 configure(install.repositories.mavenInstaller) {
     pom.project {
-        groupId 'iox.hla'
+        groupId group
         artifactId applicationName
         inceptionYear '2017'
         packaging 'jar'
@@ -37,6 +38,7 @@ dependencies {
 
     // local flat 
     compile project (':federate-core')
+    compile 'iox.emf:fom2emf:0.0.1'
    
     // DropWizard
     compile 'io.dropwizard:dropwizard-core:1.2.0'

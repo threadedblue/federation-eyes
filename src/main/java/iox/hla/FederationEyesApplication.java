@@ -21,7 +21,6 @@ public class FederationEyesApplication extends Application<FederationEyesConfig>
 	public void run(FederationEyesConfig configuration, Environment environment) throws Exception {
 		log.trace("run==>");
 		FederationService service = new FederationService(configuration.getFederation(), configuration.getFoms());
-		service.init();
 		environment.jersey().register(new IndexResource(service));
 	}
 	

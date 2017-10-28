@@ -4,7 +4,7 @@ APP_NAME="federation-eyes"
 DIR=`pwd`
 mkdir -p $APP_NAME
 
-export RTI_FILE="conf/RTI.rid"
+export RTI_RID_FILE="conf/RTI.rid"
 cd $APP_NAME
 echo "DiR="`pwd`
 echo "LS="`ls`

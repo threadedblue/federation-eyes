@@ -5,24 +5,22 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.portico.impl.hla1516e.types.HLA1516eAttributeHandleSet;
-import org.portico.impl.hla1516e.types.HLA1516eHandle;
+import org.portico.impl.hla1516e.Rti1516eAmbassador;
 import org.portico.impl.hla1516e.types.time.DoubleTime;
-import org.portico.lrc.PorticoConstants;
+import org.portico.lrc.model.ObjectModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import hla.rti1516e.CallbackModel;
+import hla.rti1516e.InteractionClassHandle;
 import hla.rti1516e.LogicalTime;
-import hla.rti1516e.ObjectClassHandle;
-import hla.rti1516e.ResignAction;
+import hla.rti1516e.ParameterHandle;
 import hla.rti1516e.exceptions.AlreadyConnected;
 import hla.rti1516e.exceptions.CallNotAllowedFromWithinCallback;
 import hla.rti1516e.exceptions.ConnectionFailed;
@@ -31,26 +29,31 @@ import hla.rti1516e.exceptions.CouldNotOpenFDD;
 import hla.rti1516e.exceptions.ErrorReadingFDD;
 import hla.rti1516e.exceptions.FederateAlreadyExecutionMember;
 import hla.rti1516e.exceptions.FederateNotExecutionMember;
+import hla.rti1516e.exceptions.FederateServiceInvocationsAreBeingReportedViaMOM;
 import hla.rti1516e.exceptions.FederationExecutionDoesNotExist;
 import hla.rti1516e.exceptions.InconsistentFDD;
+import hla.rti1516e.exceptions.InteractionClassNotDefined;
 import hla.rti1516e.exceptions.InvalidLocalSettingsDesignator;
-import hla.rti1516e.exceptions.InvalidObjectClassHandle;
+import hla.rti1516e.exceptions.NameNotFound;
 import hla.rti1516e.exceptions.NotConnected;
+import hla.rti1516e.exceptions.RTIexception;
 import hla.rti1516e.exceptions.RTIinternalError;
 import hla.rti1516e.exceptions.RestoreInProgress;
 import hla.rti1516e.exceptions.SaveInProgress;
 import hla.rti1516e.exceptions.SynchronizationPointLabelNotAnnounced;
 import hla.rti1516e.exceptions.UnsupportedCallbackModel;
+import hla.rti1516e.time.HLAfloat64Time;
+import hla.rti1516e.time.HLAfloat64TimeFactory;
 import iox.hla.core.AbstractFederate;
+import iox.hla.core.FederateAmbassador;
+import iox.hla.core.InteractionRef;
 import iox.hla.core.RTIAmbassadorException;
 
 public class FederationService extends AbstractFederate implements Runnable {
 
 	private static final Logger log = LoggerFactory.getLogger(FederationService.class);
-	private Set<String> expectedFederates = new HashSet<String>();
 
 	private Map<String, String> federation;
-	double lookahead;
 	boolean federationAttempted = false;
 	boolean timeRegulationEnabled = false;
 	boolean timeConstrainedEnabled = false;
@@ -58,64 +61,99 @@ public class FederationService extends AbstractFederate implements Runnable {
 	long timeInMillisec = 0;
 	long timeDiff;
 	boolean realtime = true;
-	boolean running = false;
-	boolean paused = false;
 	Set<Double> pauseTimes = new TreeSet<Double>();
 	double mainLoopStartTime = 0.0;
 	double mainLoopEndTime = 0.0;
 	boolean executionTimeRecorded = false;
 	boolean killingFederation = false;
-	double federationEndTime = 0.0;
 	List<String> foms;
-	protected FederateAmbassador fedAmb;
+	private AtomicBoolean advancing = new AtomicBoolean(false);
+	private AtomicBoolean started = new AtomicBoolean(false);
+	private AtomicBoolean paused = new AtomicBoolean(true);
+	private AtomicBoolean init = new AtomicBoolean(false);
+	private final List<String> joinedFederates;
+	private final List<String> resignedFederates;
+
+	final String federationId;
+	final String federateName;
+	final boolean mode;
+	final double lookahead;
+	final int federationEndTime;
 
 	public FederationService(Map<String, String> federation, List<String> foms) {
-		super();
+
+		this(federation.get("federationId"), federation.get("federateName"),
+				Boolean.parseBoolean(federation.get("mode")), Integer.parseInt(federation.get("stepSize")),
+				Double.parseDouble(federation.get("lookahead")), Integer.parseInt(federation.get("federationEndTime")),
+				foms);
 		this.federation = federation;
 		this.foms = foms;
 	}
 
-	public void init() {
-		log.info("Attempting to create federation \"" + federation.get("federation_name") + "\" ... ");
+	public FederationService(String federationId, String federateName, boolean mode, int stepSize, double lookahead,
+			int federationEndTime, List<String> foms) {
+		super();
+		this.federationId = federationId;
+		this.federateName = federateName;
+		this.mode = mode;
+		super.stepSize = stepSize;
+		this.lookahead = lookahead;
+		this.federationEndTime = federationEndTime;
+		this.foms = foms;
+		this.joinedFederates = new ArrayList<String>();
+		this.resignedFederates = new ArrayList<String>();
+	}
+
+	public String init() {
+		if(init.get()) {
+			return "Already initialized";
+		}
+		
+		log.info("Attempting to create federation \"" + federationId + "\" ... ");
 		try {
-			log.info(FEDERATION_EVENTS.CREATING_FEDERATION.toString());
-			this.fedAmb = new FederateAmbassador(rtiAmb);
+			log.debug("fedAmb=" + fedAmb );
+			log.debug("foms=" + getFoms() );
 			rtiAmb.connect(fedAmb, CallbackModel.HLA_EVOKED);
-			rtiAmb.createFederationExecution(federation.get("federation_name"), getFoms());
-			log.info(FEDERATION_EVENTS.FEDERATION_CREATED.toString());
+			rtiAmb.createFederationExecution(federationId, getFoms());
 		} catch (InconsistentFDD | ErrorReadingFDD | CouldNotOpenFDD | NotConnected | RTIinternalError
 				| ConnectionFailed | InvalidLocalSettingsDesignator | UnsupportedCallbackModel | AlreadyConnected
 				| CallNotAllowedFromWithinCallback | hla.rti1516e.exceptions.FederationExecutionAlreadyExists
 				| MalformedURLException e) {
 			log.error("", e);
 		}
-		log.info("created.\n");
-
+		log.info("Created federation \"" + federationId + "\" ... ");
+		Rti1516eAmbassador _1516 = (Rti1516eAmbassador)rtiAmb;
+		ObjectModel om = _1516.getHelper().getFOM();
+		log.debug("om=" + om);
 		try {
-			rtiAmb.joinFederationExecution(federation.get("federation_id"), federation.get("federation_name"));
+			rtiAmb.joinFederationExecution(federateName, federationId);
+			setTimeFactory((HLAfloat64TimeFactory) rtiAmb.getTimeFactory());
 		} catch (CouldNotCreateLogicalTimeFactory | FederationExecutionDoesNotExist | SaveInProgress | RestoreInProgress
-				| FederateAlreadyExecutionMember | NotConnected | CallNotAllowedFromWithinCallback
-				| RTIinternalError e1) {
+				| FederateAlreadyExecutionMember | NotConnected | CallNotAllowedFromWithinCallback | RTIinternalError
+				| FederateNotExecutionMember e1) {
 			log.error("", e1);
 		}
-
-//		ObjectClassHandle objectClassHandle = new HLA1516eHandle(PorticoConstants.MOM_FEDERATION_OBJECT_HANDLE);
-//		try {
-//			log.debug(rtiAmb.getObjectClassName(objectClassHandle));
-//			rtiAmb.subscribeObjectClassAttributes(objectClassHandle, new HLA1516eAttributeHandleSet());
-//		} catch (SaveInProgress | RestoreInProgress | FederateNotExecutionMember | NotConnected | RTIinternalError
-//				| InvalidObjectClassHandle | hla.rti1516e.exceptions.AttributeNotDefined
-//				| hla.rti1516e.exceptions.ObjectClassNotDefined e) {
-//			log.error("", e);
-//		}
 		
+		// ObjectClassHandle objectClassHandle = new
+		// HLA1516eHandle(PorticoConstants.MOM_FEDERATION_OBJECT_HANDLE);
+		// try {
+		// log.debug(rtiAmb.getObjectClassName(objectClassHandle));
+		// rtiAmb.subscribeObjectClassAttributes(objectClassHandle, new
+		// HLA1516eAttributeHandleSet());
+		// } catch (SaveInProgress | RestoreInProgress | FederateNotExecutionMember |
+		// NotConnected | RTIinternalError
+		// | InvalidObjectClassHandle | hla.rti1516e.exceptions.AttributeNotDefined
+		// | hla.rti1516e.exceptions.ObjectClassNotDefined e) {
+		// log.error("", e);
+		// }
+
 		try {
-			// enableTimeConstrained();
 
-			// enableTimeRegulation(logicalTime, lookahead);
-
-			// enableAsynchronousDelivery();
-
+			enableTimeConstrained();
+			enableTimeRegulation();
+			enableAsynchronousDelivery();
+			publishAndSubscribe();
+			
 			log.info("Registering synchronization points ... ");
 			// REGISTER "ReadyToPopulate" SYNCHRONIZATION POINT
 			rtiAmb.registerFederationSynchronizationPoint(SYNCH_POINTS.readyToPopulate.name(), null);
@@ -140,134 +178,76 @@ public class FederationService extends AbstractFederate implements Runnable {
 					tick();
 				}
 			}
+			waitForJoiners();
 		} catch (RTIinternalError | FederateNotExecutionMember | SaveInProgress | RestoreInProgress | NotConnected
-				| InterruptedException e) {
+				| InterruptedException | RTIAmbassadorException e) {
 			log.error("", e);
 		}
+		init.set(true);
+		return "done";
+	}
 
-		log.info("done.\n");
+	private void handleMessages() {
+		try {
+			InteractionRef receivedInteraction;
+			while ((receivedInteraction = fedAmb.nextInteraction()) != null) {
+				log.trace("receivedInteraction=" + receivedInteraction);
+				if ("JoinInteraction".equals(receivedInteraction.getInteractionName())) {
+					ParameterHandle parameterHandle = getRtiAmb()
+							.getParameterHandle(receivedInteraction.getInteractionClassHandle(), "federateName");
+					byte[] value = receivedInteraction.getParameters().get(parameterHandle);
+					String federateName = new String(value);
+					log.info("Joined up=" + federateName);
+				}
+			}
+		} catch (RTIexception e) {
+			log.error("", e);
+		}
+	}
+
+	private void publishAndSubscribe() {
+		InteractionClassHandle joinHandle = null;
+		InteractionClassHandle resignHandle = null;
+		try {
+			joinHandle = rtiAmb.getInteractionClassHandle("JoinInteraction");
+			rtiAmb.subscribeInteractionClass(joinHandle);
+			resignHandle = rtiAmb.getInteractionClassHandle("ResignInteraction");
+			rtiAmb.subscribeInteractionClass(resignHandle);
+			log.trace("Subscribed==>");
+
+		} catch (NameNotFound | FederateNotExecutionMember | RTIinternalError | InteractionClassNotDefined
+				| SaveInProgress | RestoreInProgress | FederateServiceInvocationsAreBeingReportedViaMOM
+				| NotConnected e) {
+			log.error("");
+			log.error("Continuing", e);
+		}
 	}
 
 	public void run() {
-
+		if (started.get()) {
+			while (!paused.get()) {
+				advanceLogicalTime();
+			}
+		}
 	}
 
-	private synchronized void createFederation() throws Exception {
-
-		federationAttempted = true;
-
-		log.info("Waiting for \"" + SYNCH_POINTS.readyToPopulate.name() + "\" ... ");
-		readyToPopulate();
-		log.info("done.\n");
-
-		log.info("Waiting for \"" + SYNCH_POINTS.readyToRun.name() + "\" ... ");
-		readyToRun();
-		log.info("done.\n");
-
-		// AS ALL FEDERATES ARE READY TO RUN, WAIT 3 SECS FOR BRITNEY TO
-		// INITIALIZE
-		Thread.sleep(3000);
-
-		fireTimeUpdate(0.0);
-
-		// set time
-		fireTimeUpdate(rtiAmb.queryLogicalTime());
-		resetTimeOffset();
-
-		// run rti on a separate thread
-		Thread t = new Thread() {
-			public void run() {
-
-				try {
-					recordMainExecutionLoopStartTime();
-
-					int numStepsExecuted = 0;
-					while (running) {
-						if (realtime) {
-							long sleep_time = timeInMillisec - (timeDiff + System.currentTimeMillis());
-							while (sleep_time > 0 && realtime) {
-								long localSleepTime = sleep_time;
-								if (localSleepTime > 1000)
-									localSleepTime = 1000;
-								Thread.sleep(localSleepTime);
-								sleep_time = timeInMillisec - (timeDiff + System.currentTimeMillis());
-							}
-						}
-
-						if (!paused) {
-							synchronized (rtiAmb) {
-
-								// executeCOAGraph();
-
-								DoubleTime next_time = new DoubleTime(getLogicalTime() + getStepsize());
-								System.out.println("Current_time = " + getLogicalTime() + " and step = " + getStepsize()
-										+ " and requested_time = " + next_time.getTime());
-								rtiAmb.timeAdvanceRequest(next_time);
-								if (realtime) {
-									timeDiff = timeInMillisec - System.currentTimeMillis();
-								}
-
-								// wait for grant
-								granted = false;
-								int numTicks = 0;
-								boolean stuckWhileWaiting = false;
-								while (!granted && running) {
-									tick();
-								}
-								numTicks = 0;
-
-								numStepsExecuted++;
-
-								// if we passed next pause time go to pause mode
-								Iterator<Double> it = pauseTimes.iterator();
-								if (it.hasNext()) {
-									double pause_time = it.next();
-									if (getLogicalTime() > pause_time) {
-										it.remove();
-										pauseSimulation();
-									}
-								}
-							}
-
-							if (numStepsExecuted == 10) {
-								log.info("Federation manager current time = " + getLogicalTime());
-								numStepsExecuted = 0;
-							}
-						} else {
-							Thread.sleep(10);
-						}
-
-						// If we have reached federation end time (if it was
-						// configured), terminate the federation
-						if (federationEndTime > 0 && getLogicalTime() > federationEndTime) {
-							terminateSimulation();
-						}
-
-					}
-
-					log.info("Waiting for \"ReadyToResign\" ... ");
-					readyToResign();
-					log.info("done.\n");
-
-					// waitForFederatesToResign();
-
-					// destroy federation
-					rtiAmb.resignFederationExecution(ResignAction.DELETE_OBJECTS);
-					rtiAmb.destroyFederationExecution(getFederationName());
-					destroyRTI();
-
-					// In case some federate is still hanging around
-					killEntireFederation();
-				}
-
-				catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-		};
-
-		running = true;
-		t.start();
+	public double advanceLogicalTime() {
+		advancing.set(true);
+		setLogicalTime(getLogicalTime() + getStepSize());
+		log.info("advancing logical time to " + getLogicalTime());
+		try {
+			fedAmb.setTimeAdvancing();
+			HLAfloat64Time time = getTimeFactory().makeTime(getLogicalTime());
+			rtiAmb.timeAdvanceRequest(time);
+		} catch (RTIexception e) {
+			log.error("", e);
+		}
+		while (fedAmb.isTimeAdvancing()) {
+			tick();
+		}
+		log.info("advanced logical time to " + getLogicalTime());
+		advancing.set(false);
+		return getLogicalTime();
 	}
 
 	@Override
@@ -379,84 +359,45 @@ public class FederationService extends AbstractFederate implements Runnable {
 
 		recordMainExecutionLoopEndTime();
 
-		// Kill the entire federation
-		// String killCommand = "bash -x " + _stopScriptFilepath;
-		// try {
-		// System.out.println("Killing federation by executing: " + killCommand +
-		// "\n\tIn directory: " + _c2wtRoot);
-		// Runtime.getRuntime().exec(killCommand, null, new File(_c2wtRoot));
-		// Runtime.getRuntime().exec(killCommand, null, new File(_c2wtRoot));
-		// Runtime.getRuntime().exec(killCommand, null, new File(_c2wtRoot));
-		// } catch (IOException e) {
-		// System.out.println("Exception while killing the federation");
-		// e.printStackTrace();
-		// }
 		System.exit(0);
 	}
-	// public RTIambassador rtiAmb throws RTIAmbassadorException {
-	// if (rtiAmb == null) {
-	// try {
-	// rtiAmb = RtiFactoryFactory.getRtiFactory().getRtiAmbassador();
-	// encoderFactory = RtiFactoryFactory.getRtiFactory().getEncoderFactory();
-	// rtiAmb.connect(fedAmb, CallbackModel.HLA_EVOKED);
-	// } catch (RTIinternalError | ConnectionFailed | InvalidLocalSettingsDesignator
-	// | UnsupportedCallbackModel
-	// | AlreadyConnected | CallNotAllowedFromWithinCallback e) {
-	// throw new RTIAmbassadorException(e);
-	// }
-	// }
-	// return rtiAmb;
-	// }
-	//
-	// FederateAmbassador getFedAmb() {
-	// if (fedAmb == null) {
-	// fedAmb = new FederateAmbassador();
-	// }
-	// return fedAmb;
-	// }
 
-	public String getFederationId() {
-		return federation.get(federation.get("federation_id"));
+	public void waitForJoiners() {
+		log.info("Waiting to federates to join...");
+		while(paused.get()) {
+			handleMessages();
+		}
 	}
-
-	public Map<Integer, String> getDiscoveredFederates() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	public Set<String> getExpectedFederates() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	// public Set<FederateObject> getIncompleteFederates() {
-	// // TODO Auto-generated method stub
-	// return null;
-	// }
 
 	public String startSimulation() {
-		// TODO Auto-generated method stub
-		return null;
+		paused.set(false);
+		started.set(true);
+		return String.format("Started at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
 	public String pauseSimulation() {
-		// TODO Auto-generated method stub
-		return null;
+		paused.set(true);
+		return String.format("Paused at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
 	public String resumeSimulation() {
-		// TODO Auto-generated method stub
-		return null;
+		paused.set(false);
+		return String.format("Resumed at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
 	public String terminateSimulation() {
-		// TODO Auto-generated method stub
-		return null;
+		paused.set(false);
+		started.set(false);
+		return String.format("Terminated at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
 	public void updateLogLevel(int level) {
 		// TODO Auto-generated method stub
 
+	}
+
+	public Map<String, String> getFederation() {
+		return federation;
 	}
 
 	public URL[] getFoms() throws MalformedURLException {
@@ -471,6 +412,38 @@ public class FederationService extends AbstractFederate implements Runnable {
 			}
 		}
 		return urls.toArray(new URL[urls.size()]);
+	}
+
+	public String getFederationId() {
+		return federationName;
+	}
+
+	public String getFederationName() {
+		return federationName;
+	}
+
+	public boolean isMode() {
+		return mode;
+	}
+
+	public double getLookahead() {
+		return lookahead;
+	}
+
+	public int getFederationEndTime() {
+		return federationEndTime;
+	}
+
+	public FederateAmbassador getFedAmb() {
+		return fedAmb;
+	}
+
+	public List<String> getJoinedFederates() {
+		return joinedFederates;
+	}
+
+	public List<String> getResignedFederates() {
+		return resignedFederates;
 	}
 
 	// federation.get(federation.get("federation_name")),
