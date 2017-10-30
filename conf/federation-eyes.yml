@@ -1,7 +1,7 @@
 logging:
   level: INFO
   loggers:
-    iox.hla: INFO
+    iox.hla: TRACE
     io.dropwizard: INFO
     timeZone: UTC
 federation: 

@@ -1,6 +1,6 @@
 build/
 *.log
 gradle/
-/.gradle/
+.gradle/
 federation-eyes/
-/bin/
+bin/

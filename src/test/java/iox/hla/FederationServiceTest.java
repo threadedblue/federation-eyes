@@ -27,7 +27,7 @@ public class FederationServiceTest {
 		List<String> ss = new ArrayList<String>();
 		ss.add("conf/little.xml");
 		sut = new FederationService("FedMgr", "FederationManager", false, 1, 0.1, 0, ss);
-		sut.init();
+		sut.start();
 	}
 	
 

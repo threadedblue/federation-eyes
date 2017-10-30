@@ -9,6 +9,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.portico.impl.hla1516e.Rti1516eAmbassador;
@@ -193,25 +197,32 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 				| InterruptedException | RTIAmbassadorException e) {
 			log.error("", e);
 		}
+		waitForJoiners();
 		init.set(true);
 	}
 
 	private void handleMessages() {
+		log.trace("handleMessages==>");
 		try {
 			InteractionRef receivedInteraction;
 			while ((receivedInteraction = fedAmb.nextInteraction()) != null) {
 				log.trace("receivedInteraction=" + receivedInteraction);
-				if ("JoinInteraction".equals(receivedInteraction.getInteractionName())) {
-					ParameterHandle parameterHandle = getRtiAmb()
+				String interactionName = rtiAmb.getInteractionClassName(receivedInteraction.getInteractionClassHandle());
+				if ("HLAinteractionRoot.JoinInteraction".equals(interactionName)) {
+					ParameterHandle parameterHandle = rtiAmb
 							.getParameterHandle(receivedInteraction.getInteractionClassHandle(), "federateName");
 					byte[] value = receivedInteraction.getParameters().get(parameterHandle);
 					String federateName = new String(value);
-					log.info("Joined up=" + federateName);
+					joinedFederates.add(federateName);
+					log.debug("Joined up=" + federateName);
+				} else {
+					log.debug("Not Joined up=" + interactionName);
 				}
 			}
 		} catch (RTIexception e) {
 			log.error("", e);
 		}
+		log.trace("<==handleMessages");
 	}
 
 	private void publishAndSubscribe() {
@@ -222,12 +233,11 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 			rtiAmb.subscribeInteractionClass(joinHandle);
 			resignHandle = rtiAmb.getInteractionClassHandle("ResignInteraction");
 			rtiAmb.subscribeInteractionClass(resignHandle);
-			log.trace("Subscribed==>");
+			log.debug("Subscribed==> joinHandle=" + joinHandle + " resignHandle=" + resignHandle);
 
 		} catch (NameNotFound | FederateNotExecutionMember | RTIinternalError | InteractionClassNotDefined
 				| SaveInProgress | RestoreInProgress | FederateServiceInvocationsAreBeingReportedViaMOM
 				| NotConnected e) {
-			log.error("");
 			log.error("Continuing", e);
 		}
 	}
@@ -371,22 +381,19 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 		System.exit(0);
 	}
 
+	ExecutorService executorService = Executors.newFixedThreadPool(10);
+	Future<List<String>> result = null;
 	public String waitForJoiners() {
-		log.info("Waiting to federates to join...");
-		while (paused.get()) {
-			handleMessages();
-			try {
-				Thread.sleep(2000);
-			} catch (InterruptedException e) {
-				log.error("", e);
-			}
-		}
-		return "All have joined";
+		log.info("Waiting for federates to join...");
+		result = executorService.submit(new WaitForJoiners());
+		return "rval";
 	}
 
 	public String startSimulation() {
 		paused.set(false);
 		started.set(true);
+		result.cancel(true);
+		executorService.shutdown();
 		return String.format("Started at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
@@ -397,12 +404,16 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 
 	public String resumeSimulation() {
 		paused.set(false);
+		result.cancel(true);
+		executorService.shutdown();
 		return String.format("Resumed at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
 	public String terminateSimulation() {
 		paused.set(false);
 		started.set(false);
+		result.cancel(true);
+		executorService.shutdown();
 		return String.format("Terminated at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
@@ -461,18 +472,19 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 		return resignedFederates;
 	}
 
-	// federation.get(federation.get("federation_name")),
-	// federation.get("FOM_file_name"),
-	// federation.get("script_file_name"),
-	// federation.get("dbName"),
-	// federation.get("logLevel"),
-	// new Boolean(federation.get("mode")),
-	// federation.get("lockFilename"),
-	// new Double(federation.get("step")),
-	// new Double(federation.get("lookahead")),
-	// new Boolean(federation.get("_terminateOnCOAFinish")),
-	// new Double(federation.get("_federationEndTime")),
-	// new Long(federation.get("seed4Dur")),
-	// new Boolean(federation.get("autoStart")),
-	// new Boolean(federation.get("gui")));
+	class WaitForJoiners implements Callable<List<String>> {
+
+		@Override
+		public List<String> call() throws Exception {
+			while (paused.get()) {
+				handleMessages();
+				try {
+					Thread.sleep(2000);
+				} catch (InterruptedException e) {
+					log.error("", e);
+				}
+			}
+			return joinedFederates;
+		}
+	}
 }
