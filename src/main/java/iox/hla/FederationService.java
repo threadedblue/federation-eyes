@@ -215,8 +215,15 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 					String federateName = new String(value);
 					joinedFederates.add(federateName);
 					log.debug("Joined up=" + federateName);
-				} else {
-					log.debug("Not Joined up=" + interactionName);
+				}
+				if ("HLAinteractionRoot.ResignedInteraction".equals(interactionName)) {
+					ParameterHandle parameterHandle = rtiAmb
+							.getParameterHandle(receivedInteraction.getInteractionClassHandle(), "federateName");
+					byte[] value = receivedInteraction.getParameters().get(parameterHandle);
+					String federateName = new String(value);
+					joinedFederates.remove(federateName);
+					resignedFederates.add(federateName);
+					log.debug("Resigned=" + federateName);
 				}
 			}
 		} catch (RTIexception e) {
@@ -326,22 +333,6 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 	public double getCurrentTime() {
 		return getLogicalTime();
 	}
-
-	// public URL[] prepareFoms(List<String> foms) {
-	// List<URL> urls = new ArrayList<URL>();
-	// for (String fileName : foms) {
-	// File file = new File(fileName);
-	// if (file.exists()) {
-	// try {
-	// URL url = file.toURI().toURL();
-	// urls.add(url);
-	// } catch (MalformedURLException e) {
-	// log.error("", e);
-	// }
-	// }
-	// }
-	// return urls.toArray(new URL[urls.size()]);
-	// }
 
 	private void fireTimeUpdate(@SuppressWarnings("rawtypes") LogicalTime t) {
 		fireTimeUpdate(((DoubleTime) t).getTime());
@@ -465,10 +456,20 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 	}
 
 	public List<String> getJoinedFederates() {
+		if(joinedFederates.size() == 0) {
+			List<String> list = new ArrayList<String>();
+			list.add("Nothing joined");
+			return list;
+		}
 		return joinedFederates;
 	}
 
 	public List<String> getResignedFederates() {
+		if(resignedFederates.size() == 0) {
+			List<String> list = new ArrayList<String>();
+			list.add("Nothing resigned");
+			return list;
+		}
 		return resignedFederates;
 	}
 
