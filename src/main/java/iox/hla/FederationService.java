@@ -197,40 +197,40 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 				| InterruptedException | RTIAmbassadorException e) {
 			log.error("", e);
 		}
-		waitForJoiners();
+//		waitForJoiners();
 		init.set(true);
 	}
 
-	private void handleMessages() {
-		log.trace("handleMessages==>");
-		try {
-			InteractionRef receivedInteraction;
-			while ((receivedInteraction = fedAmb.nextInteraction()) != null) {
-				log.trace("receivedInteraction=" + receivedInteraction);
-				String interactionName = rtiAmb.getInteractionClassName(receivedInteraction.getInteractionClassHandle());
-				if ("HLAinteractionRoot.JoinInteraction".equals(interactionName)) {
-					ParameterHandle parameterHandle = rtiAmb
-							.getParameterHandle(receivedInteraction.getInteractionClassHandle(), "federateName");
-					byte[] value = receivedInteraction.getParameters().get(parameterHandle);
-					String federateName = new String(value);
-					joinedFederates.add(federateName);
-					log.debug("Joined up=" + federateName);
-				}
-				if ("HLAinteractionRoot.ResignedInteraction".equals(interactionName)) {
-					ParameterHandle parameterHandle = rtiAmb
-							.getParameterHandle(receivedInteraction.getInteractionClassHandle(), "federateName");
-					byte[] value = receivedInteraction.getParameters().get(parameterHandle);
-					String federateName = new String(value);
-					joinedFederates.remove(federateName);
-					resignedFederates.add(federateName);
-					log.debug("Resigned=" + federateName);
-				}
-			}
-		} catch (RTIexception e) {
-			log.error("", e);
-		}
-		log.trace("<==handleMessages");
-	}
+//	private void handleMessages() {
+//		log.trace("handleMessages==>");
+//		try {
+//			InteractionRef receivedInteraction;
+//			while ((receivedInteraction = fedAmb.nextInteraction()) != null) {
+//				log.trace("receivedInteraction=" + receivedInteraction);
+//				String interactionName = rtiAmb.getInteractionClassName(receivedInteraction.getInteractionClassHandle());
+//				if ("HLAinteractionRoot.JoinInteraction".equals(interactionName)) {
+//					ParameterHandle parameterHandle = rtiAmb
+//							.getParameterHandle(receivedInteraction.getInteractionClassHandle(), "federateName");
+//					byte[] value = receivedInteraction.getParameters().get(parameterHandle);
+//					String federateName = new String(value);
+//					joinedFederates.add(federateName);
+//					log.debug("Joined up=" + federateName);
+//				}
+//				if ("HLAinteractionRoot.ResignedInteraction".equals(interactionName)) {
+//					ParameterHandle parameterHandle = rtiAmb
+//							.getParameterHandle(receivedInteraction.getInteractionClassHandle(), "federateName");
+//					byte[] value = receivedInteraction.getParameters().get(parameterHandle);
+//					String federateName = new String(value);
+//					joinedFederates.remove(federateName);
+//					resignedFederates.add(federateName);
+//					log.debug("Resigned=" + federateName);
+//				}
+//			}
+//		} catch (RTIexception e) {
+//			log.error("", e);
+//		}
+//		log.trace("<==handleMessages");
+//	}
 
 	private void publishAndSubscribe() {
 		InteractionClassHandle joinHandle = null;
@@ -372,19 +372,19 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 		System.exit(0);
 	}
 
-	ExecutorService executorService = Executors.newFixedThreadPool(10);
-	Future<List<String>> result = null;
-	public String waitForJoiners() {
-		log.info("Waiting for federates to join...");
-		result = executorService.submit(new WaitForJoiners());
-		return "rval";
-	}
+//	ExecutorService executorService = Executors.newFixedThreadPool(10);
+//	Future<List<String>> result = null;
+//	public String waitForJoiners() {
+//		log.info("Waiting for federates to join...");
+//		result = executorService.submit(new WaitForJoiners());
+//		return "rval";
+//	}
 
 	public String startSimulation() {
 		paused.set(false);
 		started.set(true);
-		result.cancel(true);
-		executorService.shutdown();
+//		result.cancel(true);
+//		executorService.shutdown();
 		return String.format("Started at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
@@ -395,22 +395,21 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 
 	public String resumeSimulation() {
 		paused.set(false);
-		result.cancel(true);
-		executorService.shutdown();
+//		result.cancel(true);
+//		executorService.shutdown();
 		return String.format("Resumed at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
 	public String terminateSimulation() {
 		paused.set(false);
 		started.set(false);
-		result.cancel(true);
-		executorService.shutdown();
+//		result.cancel(true);
+//		executorService.shutdown();
 		return String.format("Terminated at %f on thread %s", getLogicalTime(), THREAD_NAME);
 	}
 
 	public void updateLogLevel(int level) {
 		// TODO Auto-generated method stub
-
 	}
 
 	public Map<String, String> getFederation() {
@@ -473,19 +472,19 @@ public class FederationService extends AbstractFederate implements Managed, Runn
 		return resignedFederates;
 	}
 
-	class WaitForJoiners implements Callable<List<String>> {
-
-		@Override
-		public List<String> call() throws Exception {
-			while (paused.get()) {
-				handleMessages();
-				try {
-					Thread.sleep(2000);
-				} catch (InterruptedException e) {
-					log.error("", e);
-				}
-			}
-			return joinedFederates;
-		}
-	}
+//	class WaitForJoiners implements Callable<List<String>> {
+//
+//		@Override
+//		public List<String> call() throws Exception {
+//			while (paused.get()) {
+//				handleMessages();
+//				try {
+//					Thread.sleep(2000);
+//				} catch (InterruptedException e) {
+//					log.error("", e);
+//				}
+//			}
+//			return joinedFederates;
+//		}
+//	}
 }

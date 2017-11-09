@@ -66,13 +66,13 @@ public class IndexResource {
 		return String.format("%s%n", service.getFederationId());
 	}
 
-	@GET
-	@Path("/wait")
-	@Produces({ MediaType.APPLICATION_JSON })
-	public String init() {
-		log.info("service=" + service);
-		return service.waitForJoiners();
-	}
+//	@GET
+//	@Path("/wait")
+//	@Produces({ MediaType.APPLICATION_JSON })
+//	public String init() {
+//		log.info("service=" + service);
+//		return service.waitForJoiners();
+//	}
 
 	@GET
 	@Path("/joined")
